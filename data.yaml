@@ -1,0 +1,8 @@
+ # dataset path
+train: /home/v/ultralytics-main/datasets/Overwatch/test
+val: /home/v/ultralytics-main/datasets/Overwatch/valid
+test: /home/v/ultralytics-main/datasets/Overwatch/test
+
+nc: 13
+
+names: ['ANA', 'BASTION', 'CASSIDY', 'LUCIO', 'MEI', 'REAPER', 'ROADHOG', 'SOLDIER-76', 'SOMBRA', 'TORBJORN', 'ZARYA', 'ZENYATA', 'kill-sign']
