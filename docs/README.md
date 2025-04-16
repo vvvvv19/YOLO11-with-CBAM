@@ -1,146 +1,71 @@
+# 基于YOLOv11通过注意力机制CBAM对复杂场景中的单个细小目标检测
+
+### 一、概述
+现今，yolov11作为世界上最好的目标检测模型之一，面对小目标的检测结果仍然不是很好，这是由于小目标往往处于复杂的背景中，本项目在yolov11的基础下，通过注意力机制CBAM来提高效果。
+
+### 二、yolov11模型介绍
+Ultralytics YOLO11是一款尖端的、最先进的模型，它在之前YOLO版本成功的基础上进行了构建，并引入了新功能和改进，以进一步提升性能和灵活性。YOLO11设计快速、准确且易于使用，使其成为各种物体检测和跟踪、实例分割、图像分类以及姿态估计任务的绝佳选择。
+对于前代，yolov11有以下优势：<br>
+1.网络结构：YOLOv11采用了C3k2机制，这与YOLOv8中的C2f相似，但在浅层设置为False。这种结构改进了特征提取能力，提高了目标检测精度。<br>
+2.检测头：YOLOv11的检测头内部替换了两个DWConv（深度可分离卷积），这可以减少计算量和参数量，同时保持网络性能。<br>
+3.模型深度和宽度：YOLOv11的模型深度和宽度参数进行了大幅度调整，这使得模型在保持精度的同时变得更小，更适合于边缘设备部署。<br>
+4.效率和速度：YOLOv11优化了训练流程和架构设计，提供了更快的处理速度，同时保持了高准确度。<br>
+5.参数减少：YOLOv11m在COCO数据集上的mAP比YOLOv8m更高，参数减少了22%，提高了计算效率。<br>
+模型图示如下：<br>
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.1.png)
+
+### 三、改进
+引入注意力机制CBAM，有效提高精度。 <br>
+CBAM：CBAM的主要目标是通过在CNN中引入通道注意力和空间注意力来提高模型的感知能力，从而在不增加网络复杂性的情况下改善性能。结构图如下：<br>
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.2.png)
+
+### 四、数据集
+从Roboflow数据集网站得到的OVERWATCH HEADS数据集，只有一个class：EnemyHead
+有3450张图片，训练集：3237张；验证集：138张；测试集：75张。
+
+### 五、结果评估
+1.精确度(Precision):预测为正的样本中有多少是正确的，Precision=TP/(TP+FP)<br>
+2.召回率(Recall):真实为正的样本中有多少被正确预测为正，Recal =TP/(TP+FN)<br>
+3.F1值(F1-Score):综合考虑精确度和召回率的指标，F1=2*(Precision*Recal)/(Precision+ Recal)<br> 
+4.准确度(Accuracy):所有样本中模型正确预测的比例，Accuracy=(TP+TN)/(TP+TN+FP+FN)<br>
+5. 平均精确度(Mean Average Precision,mAP)mAP<br>
+
+### 六、实验
+实验平台：平台为ubuntu24.04.1 LTS 64位操作系统，实验基于深度学习框架Pytorch-GPU 2.20.1 GPU，主机配备了NVIDIA GeForce RTX 3060Ti 8G显卡，python版本为3.8，CUDA版本为11.3.1。<br>
+训练参数：<br>
+imgsz=640,<br>
+epochs=100,<br>
+batch=48,<br>
+workers=0,<br>
+device='0',<br>
+optimizer='SGD',<br>
+close_mosaic=10,<br>
+resume=False,<br>
+project='result',<br>
+name='exp',<br>
+single_cls=False,<br>
+cache=False,<br>
+模型配置参数文件：<br>
+未改进的yolov11：‘ultralytics/cfg/models/11/yolo11n.yaml’<br>
+CBAM改进的yolov11：‘ultralytics/cfg/models/11/yolo11n4.yaml’<br>
 <br>
-<a href="https://www.ultralytics.com/" target="_blank"><img src="https://raw.githubusercontent.com/ultralytics/assets/main/logo/Ultralytics_Logotype_Original.svg" width="320" alt="Ultralytics logo"></a>
-
-# 📚 Ultralytics Docs
-
-[Ultralytics](https://www.ultralytics.com/) Docs are the gateway to understanding and utilizing our cutting-edge machine learning tools. These documents are deployed to [https://docs.ultralytics.com](https://docs.ultralytics.com/) for your convenience.
-
-[![pages-build-deployment](https://github.com/ultralytics/docs/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/ultralytics/docs/actions/workflows/pages/pages-build-deployment)
-[![Check Broken links](https://github.com/ultralytics/docs/actions/workflows/links.yml/badge.svg)](https://github.com/ultralytics/docs/actions/workflows/links.yml)
-[![Check Domains](https://github.com/ultralytics/docs/actions/workflows/check_domains.yml/badge.svg)](https://github.com/ultralytics/docs/actions/workflows/check_domains.yml)
-[![Ultralytics Actions](https://github.com/ultralytics/docs/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/docs/actions/workflows/format.yml)
-
-<a href="https://discord.com/invite/ultralytics"><img alt="Discord" src="https://img.shields.io/discord/1089800235347353640?logo=discord&logoColor=white&label=Discord&color=blue"></a> <a href="https://community.ultralytics.com/"><img alt="Ultralytics Forums" src="https://img.shields.io/discourse/users?server=https%3A%2F%2Fcommunity.ultralytics.com&logo=discourse&label=Forums&color=blue"></a> <a href="https://reddit.com/r/ultralytics"><img alt="Ultralytics Reddit" src="https://img.shields.io/reddit/subreddit-subscribers/ultralytics?style=flat&logo=reddit&logoColor=white&label=Reddit&color=blue"></a>
-
-## 🛠️ Installation
-
-[![PyPI - Version](https://img.shields.io/pypi/v/ultralytics?logo=pypi&logoColor=white)](https://pypi.org/project/ultralytics/)
-[![Downloads](https://static.pepy.tech/badge/ultralytics)](https://www.pepy.tech/projects/ultralytics)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ultralytics?logo=python&logoColor=gold)](https://pypi.org/project/ultralytics/)
-
-To install the ultralytics package in developer mode, ensure you have Git and Python 3 installed on your system. Then, follow these steps:
-
-1. Clone the ultralytics repository to your local machine using Git:
-
-    ```bash
-    git clone https://github.com/ultralytics/ultralytics.git
-    ```
-
-2. Navigate to the cloned repository's root directory:
-
-    ```bash
-    cd ultralytics
-    ```
-
-3. Install the package in developer mode using pip (or pip3 for Python 3):
-
-    ```bash
-    pip install -e '.[dev]'
-    ```
-
-- This command installs the ultralytics package along with all development dependencies, allowing you to modify the package code and have the changes immediately reflected in your Python environment.
-
-## 🚀 Building and Serving Locally
-
-The `mkdocs serve` command builds and serves a local version of your MkDocs documentation, ideal for development and testing:
-
-```bash
-mkdocs serve
-```
-
-- #### Command Breakdown:
-
-    - `mkdocs` is the main MkDocs command-line interface.
-    - `serve` is the subcommand to build and locally serve your documentation.
-
-- 🧐 Note:
-
-    - Grasp changes to the docs in real-time as `mkdocs serve` supports live reloading.
-    - To stop the local server, press `CTRL+C`.
-
-## 🌍 Building and Serving Multi-Language
-
-Supporting multi-language documentation? Follow these steps:
-
-1. Stage all new language \*.md files with Git:
-
-    ```bash
-    git add docs/**/*.md -f
-    ```
-
-2. Build all languages to the `/site` folder, ensuring relevant root-level files are present:
-
-    ```bash
-    # Clear existing /site directory
-    rm -rf site
-
-    # Loop through each language config file and build
-    mkdocs build -f docs/mkdocs.yml
-    for file in docs/mkdocs_*.yml; do
-      echo "Building MkDocs site with $file"
-      mkdocs build -f "$file"
-    done
-    ```
-
-3. To preview your site, initiate a simple HTTP server:
-
-    ```bash
-    cd site
-    python -m http.server
-    # Open in your preferred browser
-    ```
-
-- 🖥️ Access the live site at `http://localhost:8000`.
-
-## 📤 Deploying Your Documentation Site
-
-Choose a hosting provider and deployment method for your MkDocs documentation:
-
-- Configure `mkdocs.yml` with deployment settings.
-- Use `mkdocs deploy` to build and deploy your site.
-
-* ### GitHub Pages Deployment Example:
-
-    ```bash
-    mkdocs gh-deploy
-    ```
-
-- Update the "Custom domain" in your repository's settings for a personalized URL.
-
-![MkDocs deployment example](https://github.com/ultralytics/docs/releases/download/0/mkdocs-deployment-example.avif)
-
-- For detailed deployment guidance, consult the [MkDocs documentation](https://www.mkdocs.org/user-guide/deploying-your-docs/).
-
-## 💡 Contribute
-
-We cherish the community's input as it drives Ultralytics open-source initiatives. Dive into the [Contributing Guide](https://docs.ultralytics.com/help/contributing/) and share your thoughts via our [Survey](https://www.ultralytics.com/survey?utm_source=github&utm_medium=social&utm_campaign=Survey). A heartfelt thank you 🙏 to each contributor!
-
-![Ultralytics open-source contributors](https://github.com/ultralytics/docs/releases/download/0/ultralytics-open-source-contributors.avif)
-
-## 📜 License
-
-Ultralytics Docs presents two licensing options:
-
-- **AGPL-3.0 License**: Perfect for academia and open collaboration. Details are in the [LICENSE](https://github.com/ultralytics/docs/blob/main/LICENSE) file.
-- **Enterprise License**: Tailored for commercial usage, offering a seamless blend of Ultralytics technology in your products. Learn more at [Ultralytics Licensing](https://www.ultralytics.com/license).
-
-## ✉️ Contact
-
-For Ultralytics bug reports and feature requests please visit [GitHub Issues](https://github.com/ultralytics/ultralytics/issues). Become a member of the Ultralytics [Discord](https://discord.com/invite/ultralytics), [Reddit](https://www.reddit.com/r/ultralytics/), or [Forums](https://community.ultralytics.com/) for asking questions, sharing projects, learning discussions, or for help with all things Ultralytics!
-
+实验结果：<br>
+对于改进的结果如下图所示：<br>
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.4.jpg)
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.3.jpg)
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.5.png)
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.6.jpg)<br>
+实验评估：<br>
+|                 |Precision|Recal	|mAP	|参数量/M	|浮点运算次数/G  |
+|-----------------|---------|-------|-------|-----------|---------------|
+|Yolov11          |0.575	|0.392	|0.379	|2.58	    |6.3            |   
+|Yolov11withCBAM  |0.643	|0.404	|0.421	|2.56	    |6.3            |
 <br>
-<div align="center">
-  <a href="https://github.com/ultralytics"><img src="https://github.com/ultralytics/assets/raw/main/social/logo-social-github.png" width="3%" alt="Ultralytics GitHub"></a>
-  <img src="https://github.com/ultralytics/assets/raw/main/social/logo-transparent.png" width="3%" alt="space">
-  <a href="https://www.linkedin.com/company/ultralytics/"><img src="https://github.com/ultralytics/assets/raw/main/social/logo-social-linkedin.png" width="3%" alt="Ultralytics LinkedIn"></a>
-  <img src="https://github.com/ultralytics/assets/raw/main/social/logo-transparent.png" width="3%" alt="space">
-  <a href="https://twitter.com/ultralytics"><img src="https://github.com/ultralytics/assets/raw/main/social/logo-social-twitter.png" width="3%" alt="Ultralytics Twitter"></a>
-  <img src="https://github.com/ultralytics/assets/raw/main/social/logo-transparent.png" width="3%" alt="space">
-  <a href="https://youtube.com/ultralytics?sub_confirmation=1"><img src="https://github.com/ultralytics/assets/raw/main/social/logo-social-youtube.png" width="3%" alt="Ultralytics YouTube"></a>
-  <img src="https://github.com/ultralytics/assets/raw/main/social/logo-transparent.png" width="3%" alt="space">
-  <a href="https://www.tiktok.com/@ultralytics"><img src="https://github.com/ultralytics/assets/raw/main/social/logo-social-tiktok.png" width="3%" alt="Ultralytics TikTok"></a>
-  <img src="https://github.com/ultralytics/assets/raw/main/social/logo-transparent.png" width="3%" alt="space">
-  <a href="https://ultralytics.com/bilibili"><img src="https://github.com/ultralytics/assets/raw/main/social/logo-social-bilibili.png" width="3%" alt="Ultralytics BiliBili"></a>
-  <img src="https://github.com/ultralytics/assets/raw/main/social/logo-transparent.png" width="3%" alt="space">
-  <a href="https://discord.com/invite/ultralytics"><img src="https://github.com/ultralytics/assets/raw/main/social/logo-social-discord.png" width="3%" alt="Ultralytics Discord"></a>
-</div>
+模型测试结果：<br>
+Yolo<br>
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.7.jpg)<br>
+Yolov11withCBAM<br>
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.8.jpg)<br>
+
+### 七、总结
+将CBAM整合进yolov11中，使得模型获得一定提升。在对比 YOLOv11 和加入 CBAM 后的 YOLOv11 with CBAM 的表现时，我们可以看到两者在精确率、召回率、mAP、参数量和浮点运算次数等多个指标上的差异。YOLOv11 with CBAM 在精确率方面表现出了一定的提升，这意味着模型在检测目标时更加准确，减少了误报。mAP 提高说明模型的整体检测性能得到了改善。参数量和浮点运算次数的增加相对较小，参数量和浮点运算次数增加，表明 CBAM 的引入并未显著增加计算开销。总体来说，这是一次进步。
