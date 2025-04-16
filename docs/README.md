@@ -55,17 +55,17 @@ CBAM改进的yolov11：‘ultralytics/cfg/models/11/yolo11n4.yaml’<br>
 ![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.3.jpg)
 ![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.5.png)
 ![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.6.jpg)<br>
-实验评估：<br>
-|                 |Precision|Recal	|mAP	|参数量/M	|浮点运算次数/G  |
-|-----------------|---------|-------|-------|-----------|---------------|
-|Yolov11          |0.575	|0.392	|0.379	|2.58	    |6.3            |   
-|Yolov11withCBAM  |0.643	|0.404	|0.421	|2.56	    |6.3            |
-<br>
 模型测试结果：<br>
 Yolo<br>
 ![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.7.jpg)<br>
 Yolov11withCBAM<br>
 ![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.8.jpg)<br>
+实验评估：<br>
+|                 |Precision|Recal	|mAP	|参数量/M	|浮点运算次数/G  |
+|-----------------|---------|-------|-------|-----------|---------------|
+|Yolov11          |0.575	|0.392	|0.379	|2.58	    |6.3            |   
+|Yolov11withCBAM  |0.643	|0.404	|0.421	|2.56	    |6.3            |
+
 
 ### 七、总结
 将CBAM整合进yolov11中，使得模型获得一定提升。在对比 YOLOv11 和加入 CBAM 后的 YOLOv11 with CBAM 的表现时，我们可以看到两者在精确率、召回率、mAP、参数量和浮点运算次数等多个指标上的差异。YOLOv11 with CBAM 在精确率方面表现出了一定的提升，这意味着模型在检测目标时更加准确，减少了误报。mAP 提高说明模型的整体检测性能得到了改善。参数量和浮点运算次数的增加相对较小，参数量和浮点运算次数增加，表明 CBAM 的引入并未显著增加计算开销。总体来说，这是一次进步。
