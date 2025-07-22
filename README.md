@@ -1,71 +1,160 @@
 # 基于YOLOv11通过注意力机制CBAM对复杂场景中的单个细小目标检测
 
-### 一、概述
-现今，yolov11作为世界上最好的目标检测模型之一，面对小目标的检测结果仍然不是很好，这是由于小目标往往处于复杂的背景中，本项目在yolov11的基础下，通过注意力机制CBAM来提高效果。
+## 一、概述
+目标检测是计算机视觉中的一项核心任务，其本质是在图像中同时预测目标的位置和类别。随着深度学习的发展，尤其是像 YOLO（You Only Look Once）系列这样的单阶段检测模型，目标检测技术已在多个标准任务上取得了令人瞩目的成绩。然而，小目标检测（Small Object Detection） 仍然是该领域一个长期存在且挑战性十足的难题。为什么小目标难以检测？最直接的原因在于，小目标本身包含的信息非常有限。小目标在图像中所占的像素极少，导致模型难以捕捉到其关键的视觉特征。例如，一辆远处的汽车可能在图像中仅占数个像素，车灯、轮胎、车牌等特征无法被清晰辨别，这对于基于卷积特征的检测网络构成了巨大的挑战。正如人类肉眼也难以识别远处模糊的物体，深度学习模型同样会受限于输入的分辨率和特征表达能力。众所周知，深度学习模型的性能高度依赖于训练数据的分布。遗憾的是，大多数主流的目标检测数据集（如COCO、Pascal VOC等）在类别和尺度分布上往往更偏向中大型目标。小目标样本数量较少，且标签标注精度也较低，从而使得模型在训练过程中难以学到对小目标敏感的特征表达。同时，多数YOLO模型采用固定尺寸的图像作为输入。以YOLOv8为例，其训练和推理默认输入尺寸为640×640。如果我们将一张1920×1080的高分辨率图像输入模型，它将被缩小到640×360，这种降采样会显著削弱图像中小物体的细节，使得它们在下采样后的图像中几乎“消失”，直接影响模型的检测能力。我们的任务就是利用yolov11这个成熟的模型	，通过对模型小幅度的改动、优化模型结构，在不提高资源算力以及不使用大型数据集的情况下，还能够提升YOLOv11模型在小目标检测方面的性能。为此，我们引入了CBAM(Convolutional Block Attention Module)注意力机制。给定一个中间特征图，CBAM模块会沿着两个独立的维度（通道和空间）依次推断注意力图，然后将注意力图与输入特征图相乘以进行自适应特征优化。该模块通过通道注意力模块关注于“哪些通道是重要的”，然后通过空间注意力模块关注于“在哪里”，是一个有信息的部分能让网络学会了关注重点信息，其引入有助于模型在细小物体的检测上更好更快的找到要检测的物体以及其位置。通过训练和评估，我们发现在引入CBAM注意力机制的情况下，在4000张左右细小物体极小的数据集中，模型的效果会得到部分提升。
 
-### 二、yolov11模型介绍
-Ultralytics YOLO11是一款尖端的、最先进的模型，它在之前YOLO版本成功的基础上进行了构建，并引入了新功能和改进，以进一步提升性能和灵活性。YOLO11设计快速、准确且易于使用，使其成为各种物体检测和跟踪、实例分割、图像分类以及姿态估计任务的绝佳选择。
-对于前代，yolov11有以下优势：<br>
-1.网络结构：YOLOv11采用了C3k2机制，这与YOLOv8中的C2f相似，但在浅层设置为False。这种结构改进了特征提取能力，提高了目标检测精度。<br>
-2.检测头：YOLOv11的检测头内部替换了两个DWConv（深度可分离卷积），这可以减少计算量和参数量，同时保持网络性能。<br>
-3.模型深度和宽度：YOLOv11的模型深度和宽度参数进行了大幅度调整，这使得模型在保持精度的同时变得更小，更适合于边缘设备部署。<br>
-4.效率和速度：YOLOv11优化了训练流程和架构设计，提供了更快的处理速度，同时保持了高准确度。<br>
-5.参数减少：YOLOv11m在COCO数据集上的mAP比YOLOv8m更高，参数减少了22%，提高了计算效率。<br>
-模型图示如下：<br>
-![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.1.png)
+## 二、网络框图及各部分详细说明
+### 1.网络框图如下
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/2.1.png)
 
-### 三、改进
-引入注意力机制CBAM，有效提高精度。 <br>
-CBAM：CBAM的主要目标是通过在CNN中引入通道注意力和空间注意力来提高模型的感知能力，从而在不增加网络复杂性的情况下改善性能。结构图如下：<br>
-![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.2.png)
+### 2.各部分详细说明
+(1).Conv 模块<br>
+&ensp;  &ensp;  YOLO11 中的 Conv 模块是网络的基础构建单元，它通常由一个 Conv2d 层、BatchNorm 批归一化和 SiLU 非线性激活函数组成。该模块用于初始特征提取和空间下采样，在每个阶段提取出更抽象、更语义的图像特征，同时控制特征图尺寸。由于其结构标准且高效，Conv 层贯穿整个 Backbone 和 Head，构成了特征表示的骨架。<br>
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/2.2.png)
 
-### 四、数据集
-从Roboflow数据集网站得到的OVERWATCH HEADS数据集，只有一个class：EnemyHead
-有3450张图片，训练集：3237张；验证集：138张；测试集：75张。
+(2).C3k2 模块<br>
+&ensp;  &ensp;  C3k2 模块是 YOLO11 引入的轻量化残差块，结构上类似于 YOLOv5 的 C3 模块，但进一步简化以提高速度和效率。C3K2模块代码中有一个设置，就是当c3k这个参数为FALSE的时候，C3K2模块就是C2F模块，也就是说它的Bottleneck是普通的Bottleneck；反之当它为true的时候，将Bottleneck模块替换成C3K模块。模块中存在 Split 等操作对特定硬件部署没有之前那么友好了。需要针对自己的硬件进行测试看对最终推理速度的影响。该模块将输入特征分为两路：一路通过一系列带有卷积的残差单元，另一路为捷径路径，最后两路融合输出。这种设计既保留了深层次语义建模的能力，也显著减少了参数和计算量，尤其适合部署在算力受限设备上。<br>
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/2.3.png)
 
-### 五、结果评估
+(3).SPPF 模块<br>
+&ensp;  &ensp;  SPPF（Spatial Pyramid Pooling - Fast）模块是对传统 SPP 的优化，通过连续三次 MaxPool(kernel=5) 操作来聚合不同感受野的信息。它不改变特征图大小，却能引入多尺度上下文，有助于捕获从局部到全局的特征信息。SPPF 通常位于骨干网络尾部，用来增强深层特征的表示力，是目标检测网络中的经典组件。<br>
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/2.4.png)
+
+(4).C2PSA 模块（通道注意力模块）<br>
+&ensp;  &ensp;  C2PSA 是 YOLO11 自研的通道注意力结构，全称可理解为 “Cross-Channel Parallel Split Attention”。它采用双分支结构，一分支专注于局部细节信息，另一分支聚焦全局语义，然后通过门控机制进行融合。该模块在保持参数和速度效率的同时，进一步增强了通道间的建模能力，提升了复杂场景中的识别精度，尤其在深层语义处理方面效果显著。<br>
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/2.5.png)
+
+(5)	Upsample 模块<br>
+&ensp;  &ensp;  Upsample 模块用于将低分辨率的特征图上采样至更高分辨率，以便和浅层特征图进行融合。YOLO11 使用 Nearest Neighbour 插值方式上采样（非参数化，速度快）。它的主要作用是让深层语义信息逐级回传到高分辨率特征层中，为小目标检测提供语义补充，是 YOLO 系列常见的多尺度特征融合路径关键环节。<br>
+
+(6)	Concat 模块<br>
+&ensp;  &ensp;  Concat 模块将不同层输出的特征图进行拼接，通常是在通道维度上进行，以实现特征融合。YOLO11 中的特征拼接主要发生在上采样后与浅层特征之间，例如 P4 与 P3 的融合。这样可以同时保留深层的语义信息和浅层的空间细节，有助于提高小目标的检测能力，也增强了网络对不同尺度目标的感知能力。<br>
+
+(7)	GhostConv 模块<br>
+&ensp;  &ensp; GhostConv 是 YOLO1 中用于降低计算负担的轻量卷积模块，来源于 GhostNet 架构的思想。它通过一次标准卷积生成一部分特征图，然后利用廉价的线性操作（如深度可分离卷积）生成更多“幽灵”特征图，从而达到用更少计算生成更丰富特征的目的。它主要用于 Head 部分的特征处理，在保持准确率的前提下，大幅度减少参数与计算量。<br>
+
+(8)	Detect 模块<br>
+&ensp;  &ensp; Detect 是 YOLO 的最终预测模块，用于对多个尺度的特征图（P3/8、P4/16、P5/32）进行边界框回归和类别分类。每个尺度的特征图分别负责感知不同尺寸的目标：P3 擅长检测小目标，P4 适合中目标，P5 针对大目标。Detect 层通常包括一个 1×1 卷积输出层，并根据 anchor-free 策略（如 FCOS）或 anchor-based 方案生成每个目标的坐标、类别概率和置信度。<br>
+
+(9)	CBAM模块详解 <br>
+&ensp;  &ensp; CBAM（Convolutional Block Attention Module）是一个组合注意力机制模块，由通道注意力（Channel Attention）和空间注意力（Spatial Attention）两个子模块串联构成。通道注意力帮助网络学会“关注哪些通道更重要”，而空间注意力则突出“图像中哪些区域更关键”。在 YOLO11 中，它被插入到主干最深层（P5/32）之后，强化对目标核心区域的表达，尤其对小物体或遮挡场景具有显著提升。<br>
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/2.6.png)
+&ensp;  &ensp; Channel attention module（CAM）<br>
+&ensp;  &ensp; 通道注意力模块：通道维度不变，压缩空间维度。该模块关注输入图片中有意义的信息(分类任务就关注因为什么分成了不同类别)。该模块将输入的feature map经过两个并行的MaxPool层和AvgPool层，将特征图从C*H*W变为C*1*1的大小，然后经过Share MLP模块，在该模块中，它先将通道数压缩为原来的1/r（Reduction，减少率）倍，再扩张到原通道数，经过ReLU激活函数得到两个激活后的结果。将这两个输出结果进行逐元素相加，再通过一个sigmoid激活函数得到Channel Attention的输出结果，再将这个输出结果乘原图，变回C*H*W的大小。<br>
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/2.7.png)
+&ensp;  &ensp; Spatial attention module（SAM） <br>
+&ensp;  &ensp;空间注意力模块：空间维度不变，压缩通道维度。该模块关注的是目标的位置信息。该模块将Channel Attention的输出结果通过最大池化和平均池化得到两个1*H*W的特征图，然后经过Concat操作对两个特征图进行拼接，通过7*7卷积变为1通道的特征图（实验证明7*7效果比3*3好），再经过一个sigmoid得到Spatial Attention的特征图，最后将输出结果乘原图变回C*H*W大小 <br>
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/2.8.png)
+
+
+## 三、网络涉及到的基本概念或基础理论
+### 1.基本概念
+1)	将目标检测视为回归问题
+YOLO 的最大创新在于，它将目标检测建模为一个单纯的回归问题，也就是说，从原始输入图像直接回归得到目标的边界框位置和对应的类别概率。这种做法摆脱了传统检测中“候选区域提取 + 特征分类”的多阶段复杂流程，使得整个目标检测过程变得简单、统一，并且可以通过一个神经网络直接实现端到端训练和预测，大大提高了检测的效率。
+
+2)	一次性看完整张图像（You Only Look Once）
+YOLO 的命名 "You Only Look Once" 正是其方法的精髓所在。与基于区域提议的方法（如 R-CNN 系列）不同，YOLO 不依赖滑动窗口或外部区域生成算法，而是在神经网络的输入端就“看到”整张图像，并一次性完成所有目标的检测。这种“全局感知”的方式使得模型在判断目标位置和类别时，能够利用整个图像的上下文信息，从而降低误检率和漏检率。
+
+3)	端到端的统一检测框架
+YOLO 提供了一个完全端到端的目标检测框架，它用一个神经网络统一处理图像的输入、特征提取、边界框回归以及类别预测，整个流程可通过单一的损失函数进行优化。这种设计方式不仅大大减少了人工干预和手工设计的模块（如 RPN、NMS 策略调优等），也让模型具有更高的鲁棒性和训练效率，是深度学习中“端到端思想”的典范应用。
+
+4)	单阶段检测
+YOLO 属于单阶段检测器，与双段阶检测器（如 Faster R-CNN）形成对比。单阶段检测器采用统一的神经网络架构，将目标检测任务看作回归问题，通过一次前向传播同时预测边界框和类别概率，具有很高的实时性。这种方法牺牲了一些准确率，但换来了极大的推理速度提升。随着后续结构（如多尺度预测、FPN、注意力机制）加入，YOLO 系列逐步弥补精度损失，实现了速度和精度的良好平衡。
+
+### 2.基础理论
+1)	将图像划分为网格
+YOLO 的第一步是将输入图像划分为 S × S 的网格（如 7×7）。每个网格被设计为负责检测图像中“目标中心落在其内部”的对象，也就是说，一个网格至多负责一个目标。这种规则确保了模型的输出具有空间上的一致性，并避免重复预测。在实际操作中，网络会为每个网格生成多个预测框，以增加对密集目标和大目标的覆盖能力。
+
+2)	每个网格预测多个边界框及类别概率
+在每个网格内，YOLO 会预测多个候选边界框（通常是 2 或 3 个），每个框包含 5 个值：中心坐标 (x, y)、宽高 (w, h)、置信度（objectness score）。同时，每个网格还会预测该区域属于各个类别的概率分布（如 20 类）。这种做法使得 YOLO 能够同时完成检测的两个核心任务：定位（regression）和分类（classification），并通过联合训练进行整体优化。
+
+3)	使用 anchor 或 anchor-free 输出框架
+YOLO 在早期版本中不使用 Anchor，而从 YOLOv2 开始引入了 Anchor Box 的概念，即在每个网格预定义多个不同长宽比的“锚框”，网络负责学习对这些锚框的偏移量。而在后期版本如 YOLOv8 中则进一步发展出 anchor-free 的预测框架，不再依赖预设 anchor，而是通过中心点热图等方式进行目标定位。这种灵活性让 YOLO 能更适应不同尺寸、形状的目标。
+
+4)	使用置信度和非极大值抑制（NMS）筛选结果
+YOLO 输出的每个候选框都带有一个置信度分数（通常为目标存在概率 × IOU 与真实框的重叠度）。在后处理阶段，模型会根据这些置信度值筛选出高质量的预测框。同时，为避免重复框出现，YOLO 使用非极大值抑制（Non-Maximum Suppression, NMS）算法，保留最高分的预测框并去除重叠度高的其他框。这一步骤是提高检测精度和输出整洁度的关键。
+
+5)	多尺度预测适配不同大小目标
+在实际图像中，目标的尺寸各异。为应对这一问题，YOLO 在后续版本引入了多尺度特征图输出（如 P3/8、P4/16、P5/32），通过在不同层级的特征图上分别进行检测，实现对小、中、大目标的协同识别。这种做法受 FPN（特征金字塔网络）启发，显著提升了模型在小目标检测场景下的表现，也增强了模型的泛化能力。
+
+6)	联合损失函数统一优化多个任务
+YOLO 在训练过程中使用一个组合损失函数，对边界框回归、类别分类和置信度评分同时进行优化。该损失函数包括位置误差（通常使用 GIoU/CIoU 损失）、类别误差（交叉熵或 BCE）、置信度误差等，所有部分加权求和，形成统一的优化目标。这种端到端的损失设计，使得模型能够自动权衡检测任务中的多个目标，从而提升整体性能。
+
+## 四、实验数据集介绍
+从Roboflow数据集网站得到的OVERWATCH HEADS数据集，只有一个class：EnemyHead 有3450张图片，训练集：3237张；验证集：138张；测试集：75张。<br>
+数据集下载地址：<br>
+[https://universe.roboflow.com/noaz-workspace/overwatch-heads]<br>
+
+## 五、结果评估
 1.精确度(Precision):预测为正的样本中有多少是正确的，Precision=TP/(TP+FP)<br>
 2.召回率(Recall):真实为正的样本中有多少被正确预测为正，Recal =TP/(TP+FN)<br>
 3.F1值(F1-Score):综合考虑精确度和召回率的指标，F1=2*(Precision*Recal)/(Precision+ Recal)<br> 
 4.准确度(Accuracy):所有样本中模型正确预测的比例，Accuracy=(TP+TN)/(TP+TN+FP+FN)<br>
 5. 平均精确度(Mean Average Precision,mAP)mAP<br>
 
-### 六、实验
-实验平台：平台为ubuntu24.04.1 LTS 64位操作系统，实验基于深度学习框架Pytorch-GPU 2.20.1 GPU，主机配备了NVIDIA GeForce RTX 3060Ti 8G显卡，python版本为3.8，CUDA版本为11.3.1。<br>
-训练参数：<br>
-imgsz=640,<br>
-epochs=100,<br>
-batch=48,<br>
-workers=0,<br>
-device='0',<br>
-optimizer='SGD',<br>
-close_mosaic=10,<br>
-resume=False,<br>
-project='result',<br>
-name='exp',<br>
-single_cls=False,<br>
-cache=False,<br>
-模型配置参数文件：<br>
-未改进的yolov11：‘ultralytics/cfg/models/11/yolo11n.yaml’<br>
-CBAM改进的yolov11：‘ultralytics/cfg/models/11/yolo11n4.yaml’<br>
+## 六、实验环境搭建
+1、 硬件配置:<br>
+处理器(CPU): Intel Core i5-14600KF <br>
+内存(RAM): 16GB<br>
+图形处理器(GPU): RTX3060TI G6X<br>
 <br>
-实验结果：<br>
+2. 软件配置<br>
+操作系统:Ubuntu 20.04 LTS<br>
+编程语言:Python 3.8<br>
+主要库和工具:opencv-python、matplotlib、numpy<br>
+<br>
+模型配置参数文件：<br>
+未改进的yolov11：‘yolo11.yaml’<br>
+CBAM改进的yolov11：‘yolo11withCBAM.yaml’<br>
+
+## 七、实验结果以及分析
+### 1.实验结果
 对于改进的结果如下图所示：<br>
-![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.4.jpg)
-![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.3.jpg)
-![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.5.png)
-![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.6.jpg)<br>
-模型测试结果：<br>
-Yolo<br>
-![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.7.jpg)<br>
-Yolov11withCBAM<br>
-![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/1.8.jpg)<br>
+1）混淆矩阵图：
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/2.9.png)
+&ensp;  &ensp; 模型在预测 “enemy head” 和 “background” 时，有较多样本被正确分类到 “background”（右下角的深蓝色区域数值较大），但也存在一定数量的 “enemy head” 被错误分类为 “background”（左下角的浅蓝色区域）以及少量 “background” 被错误分类为 “enemy head”（右上角的浅色区域）由于样本量和训练轮数较小，这是可以接受的。<br>
+2）曲线图：
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/2.10.png)
+&ensp;  &ensp;对于 “EnemyHead” 类别，随着置信度的增加，F1 分数先上升后下降，在某个中间置信度范围内达到较高的 F1 值，这表明在该置信度区间内，模型对 “EnemyHead” 的预测性能相对较好，能够较好地平衡精确率和召回率，但整体 F1 分数不是特别高，说明模型在不同类别之间的预测性能还有提升空间。<br>
+<br>
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/2.11.png)
+&ensp;  &ensp;在 P_curve(左)  中，随着置信度增加，精确率先快速上升后逐渐趋于平稳，在置信度为 0.661 时精确率为 0.96 ，表明当对预测结果较有信心时，模型的精确率较高，能减少误报。<br>
+&ensp;  &ensp;PR_curve(中) 展示了精确率和召回率之间的权衡关系，随着召回率的增加，精确率先略微下降后保持相对稳定的趋势，在召回率为 0.7 时精确率为 0.952 ，而所有类别的平均精度均值（mAP@0.5）为 0.925 ，说明模型在不同召回率水平下能保持较好的精确率。<br>
+&ensp;  &ensp;R_curve(右) 显示了召回率随置信度变化的趋势，随着置信度增加，召回率逐渐下降，当置信度为 0.000 时召回率为 0.43 ，意味着在较低的置信度要求下，模型能够识别出较多的正样本，但可能会引入更多的误报。<br>
+<br>
+3） 误差结果：
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/2.12.png)
+这张图由多个子图组成，展示了模型训练和验证过程中不同指标的变化情况：<br>
+1）训练损失（train/box_loss、train/cls_loss、train/dfl_loss）<br>
+&ensp;  &ensp;随着训练轮次增加，三种训练损失均呈下降趋势，表明模型在训练集上逐渐学习到了特征和模式，拟合效果不断提升。其中，类别损失（train/cls_loss）在训练后期趋于平稳，说明模型对不同类别的区分能力逐渐稳定。<br>
+&ensp;  &ensp;“box_loss” 用于衡量边界框回归的准确性，其下降表明模型在定位目标边界框方面逐渐变好；“dfl_loss” 是与分布特征相关的损失，其变化反映了模型对特征分布的学习情况。<br>
+2）验证损失（val/box_loss、val/cls_loss、val/dfl_loss）<br>
+&ensp;  &ensp;验证损失总体也在下降，但波动较大，这可能是因为验证集的样本分布与训练集存在一定差异，或者验证集样本数量较少导致结果不够稳定。<br>
+&ensp;  &ensp;验证损失的下降趋势与训练损失一致，说明模型在一定程度上能够泛化到验证集上，但需要关注后期验证损失是否出现明显上升，以判断是否存在过拟合现象。<br>
+3）性能指标（metrics/precision(B)、metrics/recall(B)、metrics/mAP50(B)、metrics/mAP50-95(B)）<br>
+&ensp;  &ensp;精确率（precision）和召回率（recall）随着训练轮次的增加逐渐上升，表明模型在提高识别准确性和覆盖更多真实目标方面都取得了一定进步。<br>
+&ensp;  &ensp;平均精度（mAP50 和 mAP50-95）也呈现上升趋势，mAP50 在训练后期达到较高水平，而 mAP50-95 增长相对缓慢，这可能是因为 mAP50-95 综合考虑了不同 IoU 阈值下的精度，对模型性能的要求更高，也体现了模型在不同匹配严格程度下的整体性能表现。<br>
+总体来看，模型在训练过程中损失逐渐减少，性能指标逐渐提升，表明模型在不断优化和学习。但需要注意的是，验证损失的波动以及性能指标后期的增长放缓情况，这可能提示需要进一步调整训练策略、优化模型结构或增加数据集的多样性和数量，以进一步提升模型的性能和泛化能力。<br>
+<br>
 实验评估：<br>
-|                 |Precision|Recal	|mAP	|参数量/M	|浮点运算次数/G  |
-|-----------------|---------|-------|-------|-----------|---------------|
-|Yolov11          |0.575	|0.392	|0.379	|2.58	    |6.3            |   
-|Yolov11withCBAM  |0.643	|0.404	|0.421	|2.56	    |6.3            |
+| 模型             | 层数 (Layers) | 参数量 (Parameters) | 计算量 (GFLOPs) | 精度 (P) | 召回 (R) | mAP@0.5 | mAP@0.5:0.95 | 推理速度 (ms/img) |
+|------------------|----------------|----------------------|------------------|----------|----------|---------|---------------|---------------------|
+| YOLO11           | 238            | 2,582,347            | 6.3              | 0.482    | 0.361    | 0.368   | 0.122         | 1.0                 |
+| YOLO11 with CBAM | 229            | 2,310,157            | 6.1              | 0.526    | 0.386    | 0.355   | 0.116         | 1.0                 |
+
+&ensp;  &ensp;可以看到，加入 CBAM 模块后的 YOLO11 模型在参数量（从 258 万降至 231 万）和计算量（GFLOPs 从 6.3 降至 6.1）上略有减少，表明该注意力机制融合较为轻量。同时，模型的精度（Precision）从 0.482 提升至 0.526，召回率（Recall）从 0.361 提升至 0.386，说明其对目标的识别更加敏感。但 mAP@0.5 指标略有下降（0.368 → 0.355），可能是由于引入 CBAM 后提升了检测置信度阈值，对部分中低置信目标的判断更严格，导致略微影响了整体平均精度。mAP@0.5:0.95 变化不大，推理速度保持一致，说明在不牺牲实时性的前提下，CBAM 能有效提升模型对目标的关注能力与检测性能。<br>
+<br>
+结果评估：对一张图片进行检测<br>
+yolov11训练得到的模型：<br>
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/2.13.jpg)<br>
+yolov11withCBAM训练得到的模型：<br>
+![image](https://github.com/vvvvv19/YOLO11-with-CBAM/blob/master/photos/2.14.jpg)<br>
+可以看到，对目标的预测精度得到了提升，其中一个从0.35提升到了0.75，一个从0.7提升到了0.8.
+ 
+### 2.结果分析
+在对比 YOLOv11 和加入 CBAM 后的 YOLOv11 with CBAM 的表现时，我们可以看到两者在精确率、召回率、mAP、参数量和浮点运算次数等多个指标上的差异。YOLOv11 with CBAM 在精确率方面表现出了一定的提升，这意味着模型在检测目标时更加准确，减少了误报。mAP 提高说明模型的整体检测性能得到了改善。参数量和浮点运算次数的增加相对较小，参数量和浮点运算次数增加，表明 CBAM 的引入并未显著增加计算开销。总体来说，这是一次进步。
 
 
-### 七、总结
+
+## 八、总结
 将CBAM整合进yolov11中，使得模型获得一定提升。在对比 YOLOv11 和加入 CBAM 后的 YOLOv11 with CBAM 的表现时，我们可以看到两者在精确率、召回率、mAP、参数量和浮点运算次数等多个指标上的差异。YOLOv11 with CBAM 在精确率方面表现出了一定的提升，这意味着模型在检测目标时更加准确，减少了误报。mAP 提高说明模型的整体检测性能得到了改善。参数量和浮点运算次数的增加相对较小，参数量和浮点运算次数增加，表明 CBAM 的引入并未显著增加计算开销。总体来说，这是一次进步。
